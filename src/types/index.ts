@@ -16,6 +16,9 @@ export interface DailyNote {
       bestSetId?: string; // ID of the best set for this exercise on this day
     };
   };
+  startTime?: string; // ISO datetime string
+  endTime?: string;   // ISO datetime string
+  duration?: number;  // duração total do treino em segundos
 }
 
 export interface RoutineExercise {

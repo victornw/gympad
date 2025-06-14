@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -43,7 +43,6 @@ const accentColor = "#FFAB00"; // A brighter orange/yellow for highlights if nee
 
 const NotesScreen = () => {
   const [notes, setNotes] = useState<DailyNote[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [knownExerciseNames, setKnownExerciseNames] = useState<KnownExerciseNames>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -54,6 +53,23 @@ const NotesScreen = () => {
   const [exercises, setExercises] = useState<DailyNote["exercises"]>({});
   const [currentExerciseNameInput, setCurrentExerciseNameInput] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  const [isWorkoutActive, setIsWorkoutActive] = useState(false);
+  const [workoutStartTime, setWorkoutStartTime] = useState<string | null>(null);
+  const [workoutEndTime, setWorkoutEndTime] = useState<string | null>(null);
+  const [workoutDuration, setWorkoutDuration] = useState<number>(0);
+  const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 1. Adicionar estados para novo fluxo
+  const [workoutExercises, setWorkoutExercises] = useState<any[]>([]); // [{name, sets: [{weight, reps}]}]
+  const [showAddExercise, setShowAddExercise] = useState(false);
+  const [newExerciseName, setNewExerciseName] = useState("");
+  const [newExerciseSets, setNewExerciseSets] = useState<{weight: string, reps: string}[]>([{weight: "", reps: ""}]);
+  const [workoutBodyWeight, setWorkoutBodyWeight] = useState("");
+
+  // Novo estado para controlar edição do peso corporal
+  const [isEditingBodyWeight, setIsEditingBodyWeight] = useState(true);
 
   useEffect(() => {
     // clearAllNotes(); // UNCOMMENT AND RUN ONCE TO CLEAR DATA, THEN RE-COMMENT
@@ -186,24 +202,23 @@ const NotesScreen = () => {
     });
   };
 
-  const openModalForNew = () => {
-    setEditingNoteId(null);
-    setCurrentDate(format(new Date(), "yyyy-MM-dd"));
-    setBodyWeight("");
-    setExercises({});
-    setCurrentExerciseNameInput("");
-    setSuggestions([]);
-    setModalVisible(true);
+  const startWorkout = () => {
+    setIsWorkoutActive(true);
+    const now = new Date().toISOString();
+    setWorkoutStartTime(now);
+    setWorkoutEndTime(null);
+    setWorkoutDuration(0);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setWorkoutDuration((prev) => prev + 1);
+    }, 1000);
   };
 
-  const openModalForEdit = (note: DailyNote) => {
-    setEditingNoteId(note.id);
-    setCurrentDate(note.date);
-    setBodyWeight(note.bodyWeight?.toString() || "");
-    setExercises(JSON.parse(JSON.stringify(note.exercises)));
-    setCurrentExerciseNameInput("");
-    setSuggestions([]);
-    setModalVisible(true);
+  const endWorkout = () => {
+    setIsWorkoutActive(false);
+    const now = new Date().toISOString();
+    setWorkoutEndTime(now);
+    if (timerRef.current) clearInterval(timerRef.current);
   };
 
   const saveNote = () => {
@@ -234,6 +249,9 @@ const NotesScreen = () => {
       date: currentDate,
       bodyWeight: Number(bodyWeight) || undefined,
       exercises,
+      startTime: workoutStartTime || undefined,
+      endTime: workoutEndTime || (isWorkoutActive ? new Date().toISOString() : undefined),
+      duration: workoutDuration > 0 ? workoutDuration : undefined,
     };
 
     let updatedNotes = [...notes];
@@ -268,12 +286,43 @@ const NotesScreen = () => {
     });
     setKnownExerciseNames(newNames);
 
-    setModalVisible(false);
     setEditingNoteId(null);
     setCurrentDate(format(new Date(), "yyyy-MM-dd"));
     setBodyWeight("");
     setExercises({});
     setCurrentExerciseNameInput("");
+  };
+
+  // Função utilitária para calcular tonelagem total e número de séries válidas
+  const getWorkoutMetrics = (note: DailyNote) => {
+    let tonelagem = 0;
+    let seriesValidas = 0;
+    Object.values(note.exercises).forEach((exercise) => {
+      exercise.sets.forEach((set) => {
+        if (set.weight && set.reps && set.weight > 0 && set.reps > 0) {
+          tonelagem += set.weight * set.reps;
+          seriesValidas += 1;
+        }
+      });
+    });
+    return { tonelagem, seriesValidas };
+  };
+
+  // Função para estimar calorias
+  const calculateCalories = (
+    bodyWeight: number,
+    totalTonnage: number,  // peso × reps total
+    durationMinutes: number,
+    restTimeRatio: number = 0.6  // % do tempo em descanso
+  ) => {
+    // Calorias base por minuto de treino ativo
+    const activeMinutes = durationMinutes * (1 - restTimeRatio);
+    const baseCaloriesPerMinute = 0.1 * bodyWeight; // ~6 cal/min para 60kg
+    // Bonus baseado na tonelagem (maior volume = mais calorias)
+    const tonnageBonus = totalTonnage * 0.002; // 2 cal por 1000kg movimentados
+    // Calorias de descanso (metabolismo elevado)
+    const restCalories = (durationMinutes * restTimeRatio) * (baseCaloriesPerMinute * 0.3);
+    return (activeMinutes * baseCaloriesPerMinute) + tonnageBonus + restCalories;
   };
 
   const renderSetItem = (exerciseName: string, item: ExerciseSet) => (
@@ -328,36 +377,61 @@ const NotesScreen = () => {
     </View>
   );
 
-  const renderNoteItem = ({ item }: { item: DailyNote }) => (
-    <View style={styles.noteItemContainer}>
-      <View style={styles.noteHeader}>
-        <Text style={styles.noteDate}>{format(parseISO(item.date), "MMMM d, yyyy")}</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => openModalForEdit(item)} style={styles.actionButton}>
-            <MaterialCommunityIcons name="pencil-circle-outline" size={26} color={accentColor} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => confirmDeleteNote(item.id)} style={styles.actionButton}>
-            <MaterialCommunityIcons name="trash-can-outline" size={26} color={primaryOrange} />
-          </TouchableOpacity>
+  const renderNoteItem = ({ item }: { item: DailyNote }) => {
+    const { tonelagem, seriesValidas } = getWorkoutMetrics(item);
+    let calories = undefined;
+    if (item.bodyWeight && item.duration) {
+      calories = calculateCalories(
+        item.bodyWeight,
+        tonelagem,
+        item.duration / 60
+      );
+    }
+    return (
+      <View style={styles.noteItemContainer}>
+        <View style={styles.noteHeader}>
+          <Text style={styles.noteDate}>{format(parseISO(item.date), "MMMM d, yyyy")}</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={() => setEditingNoteId(item.id)} style={styles.actionButton}>
+              <MaterialCommunityIcons name="pencil-circle-outline" size={26} color={accentColor} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => confirmDeleteNote(item.id)} style={styles.actionButton}>
+              <MaterialCommunityIcons name="trash-can-outline" size={26} color={primaryOrange} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-      {item.bodyWeight && <Text style={styles.bodyWeightText}>Body Weight: {item.bodyWeight} kg</Text>}
-      <Text style={styles.subHeader}>Exercises:</Text>
-      {Object.entries(item.exercises).map(([name, exerciseDetails]) => (
-        <View key={`${item.id}-${name}`} style={styles.exerciseLogContainer}>
-          <Text style={styles.exerciseLogName}>{name}</Text>
-          {exerciseDetails.sets.map((set, index) => (
-            <Text key={`${item.id}-${name}-set-${set.id}`} style={[styles.setLogText, set.isBestSet && styles.bestSetLogText]}>
-              {`Set ${index + 1}: `}
-              {set.weight ? `${set.weight}${set.unit || "kg"} ` : ""}
-              {`${set.reps} reps `}
-              {exerciseDetails.bestSetId === set.id ? "(Best)" : ""}
+        {item.bodyWeight && <Text style={styles.bodyWeightText}>Body Weight: {item.bodyWeight} kg</Text>}
+        {/* Métricas do treino */}
+        <View style={{ flexDirection: 'row', marginBottom: 8, flexWrap: 'wrap' }}>
+          <Text style={{ color: accentColor, fontWeight: 'bold', marginRight: 16 }}>
+            Tonelagem: {tonelagem} kg
+          </Text>
+          <Text style={{ color: accentColor, fontWeight: 'bold', marginRight: 16 }}>
+            Séries válidas: {seriesValidas}
+          </Text>
+          {calories !== undefined && (
+            <Text style={{ color: accentColor, fontWeight: 'bold' }}>
+              Calorias estimadas: {calories.toFixed(0)} kcal
             </Text>
-          ))}
+          )}
         </View>
-      ))}
-    </View>
-  );
+        <Text style={styles.subHeader}>Exercises:</Text>
+        {Object.entries(item.exercises).map(([name, exerciseDetails]) => (
+          <View key={`${item.id}-${name}`} style={styles.exerciseLogContainer}>
+            <Text style={styles.exerciseLogName}>{name}</Text>
+            {exerciseDetails.sets.map((set, index) => (
+              <Text key={`${item.id}-${name}-set-${set.id}`} style={[styles.setLogText, set.isBestSet && styles.bestSetLogText]}>
+                {`Set ${index + 1}: `}
+                {set.weight ? `${set.weight}${set.unit || "kg"} ` : ""}
+                {`${set.reps} reps `}
+                {exerciseDetails.bestSetId === set.id ? "(Best)" : ""}
+              </Text>
+            ))}
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   const confirmDeleteNote = (noteId: string) => {
     Alert.alert(
@@ -377,6 +451,69 @@ const NotesScreen = () => {
     Alert.alert("Note Deleted", "The note has been successfully deleted.");
   };
 
+  // 2. Funções para adicionar exercício e séries
+  const handleAddSet = () => {
+    setNewExerciseSets([...newExerciseSets, {weight: "", reps: ""}]);
+  };
+  const handleRemoveSet = (idx: number) => {
+    setNewExerciseSets(newExerciseSets.filter((_, i) => i !== idx));
+  };
+  const handleSetChange = (idx: number, field: "weight" | "reps", value: string) => {
+    setNewExerciseSets(newExerciseSets.map((set, i) => i === idx ? {...set, [field]: value} : set));
+  };
+  const handleSaveExercise = () => {
+    if (!newExerciseName.trim()) return;
+    setWorkoutExercises([...workoutExercises, {
+      name: newExerciseName.trim(),
+      sets: newExerciseSets.map(s => ({weight: parseFloat(s.weight), reps: parseInt(s.reps, 10)})).filter(s => s.weight > 0 && s.reps > 0)
+    }]);
+    setNewExerciseName("");
+    setNewExerciseSets([{weight: "", reps: ""}]);
+    setShowAddExercise(false);
+  };
+  const handleRemoveExercise = (idx: number) => {
+    setWorkoutExercises(workoutExercises.filter((_, i) => i !== idx));
+  };
+
+  // 3. Finalizar treino e salvar nota
+  const handleFinishWorkout = () => {
+    if (workoutExercises.length === 0) {
+      Alert.alert("Adicione pelo menos um exercício antes de finalizar o treino.");
+      return;
+    }
+    const exercisesObj: DailyNote["exercises"] = {};
+    workoutExercises.forEach(ex => {
+      exercisesObj[ex.name] = {
+        sets: ex.sets.map((s, idx) => ({
+          id: `${Date.now()}-${ex.name}-${idx}`,
+          weight: s.weight,
+          reps: s.reps,
+          unit: "kg"
+        })),
+        bestSetId: undefined
+      };
+    });
+    const noteData: Omit<DailyNote, "id"> = {
+      date: format(new Date(), "yyyy-MM-dd"),
+      bodyWeight: workoutBodyWeight ? parseFloat(workoutBodyWeight) : undefined,
+      exercises: exercisesObj,
+      startTime: workoutStartTime || undefined,
+      endTime: new Date().toISOString(),
+      duration: workoutDuration > 0 ? workoutDuration : undefined,
+    };
+    const newNote: DailyNote = {
+      ...noteData,
+      id: Date.now().toString(),
+    };
+    setNotes([newNote, ...notes]);
+    setIsWorkoutActive(false);
+    setWorkoutStartTime(null);
+    setWorkoutEndTime(null);
+    setWorkoutDuration(0);
+    setWorkoutExercises([]);
+    setWorkoutBodyWeight("");
+  };
+
   if (isLoading) {
     return (
       <View style={styles.screenContainer}>
@@ -387,10 +524,6 @@ const NotesScreen = () => {
 
   return (
     <View style={styles.screenContainer}>
-      <TouchableOpacity style={styles.createButton} onPress={openModalForNew}>
-        <MaterialCommunityIcons name="plus-circle" size={28} color={textPrimary} />
-        <Text style={styles.createButtonText}>Add Daily Note</Text>
-      </TouchableOpacity>
       <FlatList
         data={notes}
         renderItem={renderNoteItem}
@@ -398,88 +531,6 @@ const NotesScreen = () => {
         ListEmptyComponent={<Text style={styles.emptyListText}>No notes yet. Add your first workout!</Text>}
         extraData={notes}
       />
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={modalVisible}
-        onRequestClose={() => {
-          setModalVisible(false);
-          setEditingNoteId(null);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
-        >
-          <ScrollView style={styles.modalContainer} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 20 }}>
-            <Text style={styles.modalTitle}>{editingNoteId ? "Edit Note" : "Add New Note"}</Text>
-            <TextInput
-              placeholder="Date (YYYY-MM-DD)"
-              placeholderTextColor={textSecondary}
-              style={styles.input}
-              value={currentDate}
-              onChangeText={setCurrentDate}
-            />
-            <TextInput
-              placeholder="Body Weight (kg)"
-              placeholderTextColor={textSecondary}
-              keyboardType="numeric"
-              style={styles.input}
-              value={bodyWeight}
-              onChangeText={setBodyWeight}
-            />
-            <Text style={styles.subHeader}>Log Exercises:</Text>
-            {Object.entries(exercises).map(([name, data]) => renderExerciseEntry(name, data))}
-
-            <View style={styles.addExerciseRow}>
-              <View style={styles.exerciseInputContainer}>
-                <TextInput
-                  placeholder="New Exercise Name"
-                  placeholderTextColor={textSecondary}
-                  style={styles.inputFlex}
-                  value={currentExerciseNameInput}
-                  onChangeText={handleExerciseNameChange}
-                  onSubmitEditing={() => addExerciseEntry()}
-                />
-                {suggestions.length > 0 && (
-                  <FlatList
-                    data={suggestions}
-                    keyExtractor={(item) => item}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity onPress={() => selectSuggestion(item)} style={styles.suggestionItem}>
-                        <Text style={styles.suggestionItemText}>{item}</Text>
-                      </TouchableOpacity>
-                    )}
-                    style={styles.suggestionsList}
-                    keyboardShouldPersistTaps="handled"
-                    removeClippedSubviews={false}
-                  />
-                )}
-              </View>
-              <TouchableOpacity style={styles.addExerciseButton} onPress={() => addExerciseEntry()}>
-                <MaterialCommunityIcons name="plus-box" size={30} color={textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity style={styles.styledModalButton} onPress={saveNote}>
-                <Text style={styles.styledModalButtonText}>{editingNoteId ? "Update Note" : "Save Note"}</Text>
-              </TouchableOpacity>
-              <View style={{ marginTop: 10 }} />
-              <TouchableOpacity
-                style={styles.styledModalCancelButton}
-                onPress={() => {
-                  setModalVisible(false);
-                  setEditingNoteId(null);
-                }}
-              >
-                <Text style={styles.styledModalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 };

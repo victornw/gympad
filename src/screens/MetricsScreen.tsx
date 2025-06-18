@@ -25,7 +25,7 @@ const NOTES_STORAGE_KEY = "@GymPad:notes";
 const KNOWN_EXERCISES_STORAGE_KEY = "@GymPad:knownExercises";
 const screenWidth = Dimensions.get("window").width;
 
-const chartPaddingRight = Platform.OS === "android" ? 55 : 40; // More padding for Android y-axis labels
+const chartPaddingRight = Platform.OS === "android" ? 45 : 30;
 
 // NEW COLOR PALETTE (same as NotesScreen for consistency)
 const primaryOrange = "#FF6F00";
@@ -37,24 +37,27 @@ const textSecondary = "#B0BEC5";
 const accentColor = "#FFAB00";
 
 const baseChartConfig = {
-  backgroundColor: mediumGray, // Chart card background
+  backgroundColor: mediumGray,
   backgroundGradientFrom: mediumGray,
   backgroundGradientTo: mediumGray,
   decimalPlaces: 1,
-  color: (opacity = 1) => `rgba(255, 111, 0, ${opacity})`, // primaryOrange for lines/bars
-  labelColor: (opacity = 1) => `rgba(176, 190, 197, ${opacity})`, // textSecondary for labels
+  color: (opacity = 1) => `rgba(255, 111, 0, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(176, 190, 197, ${opacity})`,
   style: {
     borderRadius: 8,
   },
   propsForDots: {
-    r: "4",
-    strokeWidth: "1",
-    stroke: accentColor, // Accent for dots
+    r: "5",
+    strokeWidth: "2",
+    stroke: accentColor,
   },
   propsForBackgroundLines: {
     strokeDasharray: "",
     strokeWidth: StyleSheet.hairlineWidth,
-    stroke: lightGray, // Subtle background lines
+    stroke: lightGray,
+  },
+  propsForLabels: {
+    fontSize: 12,
   },
 };
 
@@ -62,20 +65,17 @@ const baseChartConfig = {
 const prepareLineChartData = (rawData: number[], unit: "kg" | "bricks" | "reps") => {
   if (rawData.length === 0) return [];
 
-  // If only one data point, duplicate it to draw a line
-  if (rawData.length === 1) return [rawData[0], rawData[0]];
+  const validData = rawData.filter((val) => typeof val === "number" && !isNaN(val) && isFinite(val));
+  if (validData.length === 0) return [];
 
-  // If all data points are the same (e.g., [40, 40, 40]), return as is for a flat line.
-  // The chart library should handle scaling this correctly.
-  const allSame = rawData.every((val) => val === rawData[0]);
+  if (validData.length === 1) return [validData[0], validData[0]];
+
+  const allSame = validData.every((val) => val === validData[0]);
   if (allSame) {
-    return rawData; // e.g. [40, 40] will render a flat line
+    return validData;
   }
 
-  // If data points are different, return as is.
-  // The previous logic for adding a tiny diff if allSame was true but length > 1
-  // (e.g. [val-diff, val+diff]) is removed to ensure visually flat lines when values are identical.
-  return rawData;
+  return validData;
 };
 
 const getChartSegments = (data: number[], isBarChart = false) => {
@@ -312,7 +312,6 @@ const MetricsScreen = () => {
     type: "line" | "bar",
     title: string
   ) => {
-    // Defensive: Always return a <Text> for empty/invalid data
     if (
       !chartData ||
       !Array.isArray(chartData.labels) ||
@@ -322,9 +321,12 @@ const MetricsScreen = () => {
       chartData.datasets[0].data.length === 0
     ) {
       return (
-        <Text style={styles.placeholderText}>
-          {typeof title === "string" && title.length > 0 ? `No data available for ${title}.` : "No data available."}
-        </Text>
+        <View style={styles.chartCard}>
+          {title ? <Text style={styles.chartHeader}>{title}</Text> : null}
+          <Text style={styles.placeholderText}>
+            {typeof title === "string" && title.length > 0 ? `No data available for ${title}.` : "No data available."}
+          </Text>
+        </View>
       );
     }
 
@@ -332,19 +334,22 @@ const MetricsScreen = () => {
     const numericData = dataset.data.filter((d) => typeof d === "number" && !isNaN(d));
     if (numericData.length === 0 && type !== "bar") {
       return (
-        <Text style={styles.placeholderText}>
-          {typeof title === "string" && title.length > 0 ? `Not enough numeric data for ${title}.` : "Not enough numeric data."}
-        </Text>
+        <View style={styles.chartCard}>
+          {title ? <Text style={styles.chartHeader}>{title}</Text> : null}
+          <Text style={styles.placeholderText}>
+            {typeof title === "string" && title.length > 0 ? `Not enough numeric data for ${title}.` : "Not enough numeric data."}
+          </Text>
+        </View>
       );
     }
 
-    // Defensive: Ensure all labels are strings
     const safeLabels = Array.isArray(chartData.labels) ? chartData.labels.map((l) => String(l)) : [];
 
     const isWeightChart = type === "line" && (dataset.unit === "kg" || dataset.unit === "bricks");
     const chartDecimalPlaces = dataset.unit === "kg" ? 1 : 0;
     const yAxisSuffix = dataset.unit && dataset.unit !== "reps" ? ` ${dataset.unit}` : dataset.unit === "reps" ? " reps" : "";
     let segments = getChartSegments(numericData, type === "bar");
+
     if (isWeightChart && numericData.length > 0) {
       const maxValue = Math.max(...numericData);
       if (maxValue > 0) {
@@ -354,11 +359,13 @@ const MetricsScreen = () => {
         segments = Math.max(segments, 2);
       }
     }
+
     const currentChartConfig = {
       ...baseChartConfig,
       decimalPlaces: chartDecimalPlaces,
       color: dataset.color ? (opacity = 1) => dataset.color!(opacity) : baseChartConfig.color,
     };
+
     const chartSpecificProps: any = {
       yAxisLabel: "",
       yAxisSuffix,
@@ -368,6 +375,7 @@ const MetricsScreen = () => {
       chartConfig: currentChartConfig,
       style: { ...baseChartConfig.style, paddingRight: chartPaddingRight, marginLeft: -15 },
     };
+
     if (type === "bar") {
       chartSpecificProps.showValuesOnTopOfBars = true;
       chartSpecificProps.withHorizontalLabels = true;
@@ -379,8 +387,9 @@ const MetricsScreen = () => {
       }
     } else if (type === "line") {
       chartSpecificProps.fromZero = isWeightChart;
-      chartSpecificProps.bezier = true;
+      chartSpecificProps.bezier = false;
     }
+
     return (
       <View style={styles.chartCard}>
         {title ? <Text style={styles.chartHeader}>{title}</Text> : null}
@@ -407,9 +416,7 @@ const MetricsScreen = () => {
       {renderAppChart(bodyWeightChartData, "line", "Body Weight")}
 
       <View style={styles.chartCard}>
-        {" "}
-        {/* Use chartCard style */}
-        <Text style={styles.sectionHeader}>Workout Frequency</Text> {/* Changed from chartHeader for distinction */}
+        <Text style={styles.sectionHeader}>Workout Frequency</Text>
         <View style={styles.weekNavigationContainer}>
           <TouchableOpacity onPress={handlePreviousWeek} style={styles.weekNavButton}>
             <Text style={styles.weekNavButtonText}>{"< PREV"}</Text>
@@ -427,18 +434,14 @@ const MetricsScreen = () => {
       </View>
 
       <View style={styles.chartCard}>
-        {" "}
-        {/* Use chartCard style */}
-        <Text style={styles.sectionHeader}>Exercise Evolution</Text> {/* Changed from chartHeader */}
+        <Text style={styles.sectionHeader}>Exercise Evolution</Text>
         {knownExerciseNames.size > 0 ? (
           <View style={styles.pickerWrapper}>
-            {" "}
-            {/* New wrapper for picker styling */}
             <Picker
               selectedValue={selectedExercise}
               onValueChange={(itemValue: string) => setSelectedExercise(itemValue)}
               style={styles.picker}
-              dropdownIconColor={textPrimary} // iOS Dropdown arrow
+              dropdownIconColor={textPrimary}
             >
               {Array.from(knownExerciseNames).map((name) => (
                 <Picker.Item
@@ -447,7 +450,7 @@ const MetricsScreen = () => {
                   value={name}
                   style={styles.pickerItem}
                   color={Platform.OS === "android" ? textPrimary : undefined}
-                /> // Android item color
+                />
               ))}
             </Picker>
           </View>
@@ -485,21 +488,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   chartCard: {
-    // Renamed from chartContainer for clarity and specific styling
     marginVertical: 15,
     backgroundColor: mediumGray,
     borderRadius: 8,
-    paddingVertical: 15, // Increased padding
-    paddingHorizontal: 5, // Horizontal padding for content within card
+    paddingVertical: 15,
+    paddingHorizontal: 5,
     elevation: 3,
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 5,
-    borderTopWidth: 3, // Graffiti-like accent
+    borderTopWidth: 3,
     borderTopColor: primaryOrange,
   },
   sectionHeader: {
-    // For major sections like "Workout Frequency", "Exercise Evolution"
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 12,
@@ -508,7 +509,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   chartHeader: {
-    // For individual chart titles like "Body Weight", "Reps"
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 10,

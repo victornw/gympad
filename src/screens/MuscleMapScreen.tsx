@@ -1,79 +1,96 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { differenceInDays, parseISO } from 'date-fns';
+import React, { useState } from "react";
+import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, Dimensions } from "react-native";
+import Svg, { Path, Circle, Ellipse, G } from "react-native-svg";
+import { differenceInDays, parseISO } from "date-fns";
+
+const { width: screenWidth } = Dimensions.get("window");
 
 const muscleGroups = [
-  { key: 'chest', name: 'Peito' },
-  { key: 'shoulders', name: 'Ombros' },
-  { key: 'biceps', name: 'Bíceps' },
-  { key: 'triceps', name: 'Tríceps' },
-  { key: 'back', name: 'Costas' },
-  { key: 'traps', name: 'Trapézio' },
-  { key: 'abs', name: 'Abdômen' },
-  { key: 'quads', name: 'Quadríceps' },
-  { key: 'hamstrings', name: 'Posteriores' },
-  { key: 'glutes', name: 'Glúteos' },
-  { key: 'calves', name: 'Panturrilhas' },
-  { key: 'forearms', name: 'Antebraços' },
+  { key: "chest", name: "Peito", frontView: true, svgClass: "pecs" },
+  { key: "shoulders", name: "Ombros", frontView: true, svgClass: "front-side-delts" },
+  { key: "biceps", name: "Bíceps", frontView: true, svgClass: "biceps" },
+  { key: "triceps", name: "Tríceps", frontView: false, svgClass: "triceps" },
+  { key: "back", name: "Costas", frontView: false, svgClass: "lats" },
+  { key: "traps", name: "Trapézio", frontView: false, svgClass: "traps" },
+  { key: "abs", name: "Abdômen", frontView: true, svgClass: "abs" },
+  { key: "quads", name: "Quadríceps", frontView: true, svgClass: "quads" },
+  { key: "hamstrings", name: "Posteriores", frontView: false, svgClass: "hamstrings" },
+  { key: "glutes", name: "Glúteos", frontView: false, svgClass: "glutes" },
+  { key: "calves", name: "Panturrilhas", frontView: true, svgClass: "calves" },
+  { key: "forearms", name: "Antebraços", frontView: true, svgClass: "forearms-top" },
+  { key: "obliques", name: "Oblíquos", frontView: true, svgClass: "obliques" },
+  { key: "rearDelts", name: "Deltóide Posterior", frontView: false, svgClass: "rear-delts" },
+  { key: "lowerBack", name: "Lombar", frontView: false, svgClass: "lower-back" },
+  { key: "neck", name: "Pescoço", frontView: false, svgClass: "neck" },
 ];
 
 const fatigueColors = {
-  green: '#4CAF50',
-  yellow: '#FFEB3B',
-  orange: '#FF9800',
-  red: '#F44336',
+  green: "#4CAF50",
+  yellow: "#FFEB3B",
+  orange: "#FF9800",
+  red: "#F44336",
+  default: "#8B4513",
 };
 
 // Mapeamento de exercícios para grupos musculares principais
 const exerciseToMuscles: Record<string, string[]> = {
-  'Supino': ['chest', 'triceps', 'shoulders'],
-  'Desenvolvimento': ['shoulders', 'triceps'],
-  'Remada': ['back', 'biceps'],
-  'Puxada': ['back', 'biceps'],
-  'Agachamento': ['quads', 'glutes', 'hamstrings'],
-  'Leg Press': ['quads', 'glutes'],
-  'Stiff': ['hamstrings', 'glutes'],
-  'Rosca Direta': ['biceps', 'forearms'],
-  'Tríceps Testa': ['triceps'],
-  'Abdominal': ['abs'],
-  'Panturrilha': ['calves'],
+  Supino: ["chest", "triceps", "shoulders"],
+  Desenvolvimento: ["shoulders", "triceps"],
+  Remada: ["back", "biceps"],
+  Puxada: ["back", "biceps"],
+  Agachamento: ["quads", "glutes", "hamstrings"],
+  "Leg Press": ["quads", "glutes"],
+  Stiff: ["hamstrings", "glutes"],
+  "Rosca Direta": ["biceps", "forearms"],
+  "Tríceps Testa": ["triceps"],
+  Abdominal: ["abs"],
+  Panturrilha: ["calves"],
   // ...adicione mais conforme necessário
 };
 
 // Mock de histórico de treinos (últimos 7 dias)
 const mockNotes = [
   {
-    id: '1',
-    date: '2024-06-10',
+    id: "1",
+    date: "2024-06-10",
     exercises: {
-      'Supino': { sets: [ { id: '1', weight: 60, reps: 10 }, { id: '2', weight: 60, reps: 8 } ] },
-      'Tríceps Testa': { sets: [ { id: '1', weight: 30, reps: 12 } ] },
-      'Abdominal': { sets: [ { id: '1', weight: 0, reps: 20 } ] },
+      Supino: {
+        sets: [
+          { id: "1", weight: 60, reps: 10 },
+          { id: "2", weight: 60, reps: 8 },
+        ],
+      },
+      "Tríceps Testa": { sets: [{ id: "1", weight: 30, reps: 12 }] },
+      Abdominal: { sets: [{ id: "1", weight: 0, reps: 20 }] },
     },
   },
   {
-    id: '2',
-    date: '2024-06-09',
+    id: "2",
+    date: "2024-06-09",
     exercises: {
-      'Agachamento': { sets: [ { id: '1', weight: 80, reps: 10 }, { id: '2', weight: 80, reps: 8 } ] },
-      'Panturrilha': { sets: [ { id: '1', weight: 40, reps: 15 } ] },
+      Agachamento: {
+        sets: [
+          { id: "1", weight: 80, reps: 10 },
+          { id: "2", weight: 80, reps: 8 },
+        ],
+      },
+      Panturrilha: { sets: [{ id: "1", weight: 40, reps: 15 }] },
     },
   },
   {
-    id: '3',
-    date: '2024-06-08',
+    id: "3",
+    date: "2024-06-08",
     exercises: {
-      'Remada': { sets: [ { id: '1', weight: 50, reps: 10 } ] },
-      'Rosca Direta': { sets: [ { id: '1', weight: 20, reps: 12 } ] },
+      Remada: { sets: [{ id: "1", weight: 50, reps: 10 }] },
+      "Rosca Direta": { sets: [{ id: "1", weight: 20, reps: 12 }] },
     },
   },
   {
-    id: '4',
-    date: '2024-06-07',
+    id: "4",
+    date: "2024-06-07",
     exercises: {
-      'Desenvolvimento': { sets: [ { id: '1', weight: 30, reps: 10 } ] },
-      'Stiff': { sets: [ { id: '1', weight: 60, reps: 10 } ] },
+      Desenvolvimento: { sets: [{ id: "1", weight: 30, reps: 10 }] },
+      Stiff: { sets: [{ id: "1", weight: 60, reps: 10 }] },
     },
   },
   // ... mais dias se quiser
@@ -82,15 +99,15 @@ const mockNotes = [
 // Função para calcular fadiga dos grupos musculares
 function calculateMuscleFatigue(notes: any[], today: string) {
   // Inicializa dados
-  const muscleData: Record<string, { lastWorkout: string | null, daysAgo: number, volume: number }> = {};
-  muscleGroups.forEach(m => muscleData[m.key] = { lastWorkout: null, daysAgo: 99, volume: 0 });
+  const muscleData: Record<string, { lastWorkout: string | null; daysAgo: number; volume: number }> = {};
+  muscleGroups.forEach((m) => (muscleData[m.key] = { lastWorkout: null, daysAgo: 99, volume: 0 }));
 
-  notes.forEach(note => {
+  notes.forEach((note) => {
     const noteDate = note.date;
     Object.entries(note.exercises).forEach(([exName, exData]: any) => {
       const muscles = exerciseToMuscles[exName] || [];
       const volume = exData.sets.reduce((sum: number, set: any) => sum + (set.weight || 0) * (set.reps || 0), 0);
-      muscles.forEach(muscle => {
+      muscles.forEach((muscle) => {
         // Soma volume
         muscleData[muscle].volume += volume;
         // Atualiza último treino se for mais recente
@@ -102,40 +119,42 @@ function calculateMuscleFatigue(notes: any[], today: string) {
   });
 
   // Calcula dias desde o último treino
-  muscleGroups.forEach(m => {
+  muscleGroups.forEach((m) => {
     if (muscleData[m.key].lastWorkout) {
-      muscleData[m.key].daysAgo = differenceInDays(parseISO(today), parseISO(muscleData[m.key].lastWorkout));
+      muscleData[m.key].daysAgo = differenceInDays(parseISO(today), parseISO(muscleData[m.key].lastWorkout!));
     }
   });
 
   // Aplica regras de fadiga
-  const fatigue: Record<string, { percent: number, color: string, lastWorkout: string, volume: number, status: string }> = {};
-  muscleGroups.forEach(m => {
+  const fatigue: Record<string, { percent: number; color: string; lastWorkout: string; volume: number; status: string }> = {};
+  muscleGroups.forEach((m) => {
     const { daysAgo, volume, lastWorkout } = muscleData[m.key];
     let color = fatigueColors.green;
     let percent = 0;
-    let status = 'Recuperado';
+    let status = "Recuperado";
     if (daysAgo <= 0 && volume > 2000) {
       color = fatigueColors.red;
       percent = 80;
-      status = 'Muito fatigado';
+      status = "Muito fatigado";
     } else if (daysAgo <= 1 && volume > 1000) {
       color = fatigueColors.orange;
       percent = 60;
-      status = 'Moderado';
+      status = "Moderado";
     } else if (daysAgo <= 2 && volume > 0) {
       color = fatigueColors.yellow;
       percent = 30;
-      status = 'Leve';
+      status = "Leve";
     } else if (daysAgo >= 3) {
       color = fatigueColors.green;
       percent = 10;
-      status = 'Recuperado';
+      status = "Recuperado";
+    } else {
+      color = fatigueColors.default;
     }
     fatigue[m.key] = {
       percent,
       color,
-      lastWorkout: lastWorkout ? `${daysAgo} dia(s) atrás` : 'Nunca',
+      lastWorkout: lastWorkout ? `${daysAgo} dia(s) atrás` : "Nunca",
       volume,
       status,
     };
@@ -143,93 +162,360 @@ function calculateMuscleFatigue(notes: any[], today: string) {
   return fatigue;
 }
 
-const today = '2024-06-10'; // Data mockada para simulação
+const today = "2024-06-10"; // Data mockada para simulação
 const fatigueData = calculateMuscleFatigue(mockNotes, today);
+
+console.log("Fatigue Data:", fatigueData);
+
+const FrontBodySvg = ({ onMusclePress }: { onMusclePress: (muscle: string) => void }) => (
+  <Svg width={300} height={480} viewBox="0 0 400 500">
+    <G>
+      <TouchableOpacity onPress={() => onMusclePress("chest")}>
+        <Path
+          d="M150,80 Q200,75 250,80 Q260,120 240,160 Q200,170 160,160 Q140,120 150,80 Z"
+          fill={fatigueData.chest?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("shoulders")}>
+        <Path
+          d="M100,80 Q120,60 140,80 Q145,110 130,130 L120,120 Q105,100 100,80 Z"
+          fill={fatigueData.shoulders?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M260,80 Q280,60 300,80 Q295,100 280,120 L270,130 Q255,110 260,80 Z"
+          fill={fatigueData.shoulders?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("biceps")}>
+        <Path
+          d="M80,120 Q90,110 110,120 Q115,150 105,180 Q95,185 85,180 Q75,150 80,120 Z"
+          fill={fatigueData.biceps?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M290,120 Q310,110 320,120 Q325,150 315,180 Q305,185 295,180 Q285,150 290,120 Z"
+          fill={fatigueData.biceps?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("forearms")}>
+        <Path
+          d="M75,180 Q85,175 105,180 Q110,220 100,250 Q90,255 80,250 Q70,220 75,180 Z"
+          fill={fatigueData.forearms?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M295,180 Q315,175 325,180 Q330,220 320,250 Q310,255 300,250 Q290,220 295,180 Z"
+          fill={fatigueData.forearms?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("abs")}>
+        <Path
+          d="M160,170 Q200,165 240,170 Q245,220 240,270 Q200,275 160,270 Q155,220 160,170 Z"
+          fill={fatigueData.abs?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path d="M180,180 L220,180" stroke="#333" strokeWidth="1" />
+        <Path d="M180,200 L220,200" stroke="#333" strokeWidth="1" />
+        <Path d="M180,220 L220,220" stroke="#333" strokeWidth="1" />
+        <Path d="M180,240 L220,240" stroke="#333" strokeWidth="1" />
+        <Path d="M200,170 L200,270" stroke="#333" strokeWidth="1" />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("obliques")}>
+        <Path
+          d="M140,180 Q150,170 160,180 Q165,220 155,250 Q145,255 135,250 Q130,220 140,180 Z"
+          fill={fatigueData.obliques?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M240,180 Q250,170 260,180 Q270,220 265,250 Q255,255 245,250 Q235,220 240,180 Z"
+          fill={fatigueData.obliques?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("quads")}>
+        <Path
+          d="M150,280 Q170,275 190,280 Q195,350 185,420 Q175,425 165,420 Q155,350 150,280 Z"
+          fill={fatigueData.quads?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M210,280 Q230,275 250,280 Q245,350 235,420 Q225,425 215,420 Q205,350 210,280 Z"
+          fill={fatigueData.quads?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path d="M170,290 L170,410" stroke="#333" strokeWidth="1" />
+        <Path d="M230,290 L230,410" stroke="#333" strokeWidth="1" />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("calves")}>
+        <Path
+          d="M155,420 Q175,415 185,420 Q190,460 180,480 Q170,485 160,480 Q150,460 155,420 Z"
+          fill={fatigueData.calves?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M215,420 Q235,415 245,420 Q240,460 230,480 Q220,485 210,480 Q205,460 215,420 Z"
+          fill={fatigueData.calves?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <Circle cx="200" cy="40" r="25" fill="#2C2C2C" stroke="#444" strokeWidth="2" />
+      <Path d="M185,60 L215,60 L210,80 L190,80 Z" fill="#2C2C2C" stroke="#444" strokeWidth="2" />
+      <Path d="M160,80 L240,80 L250,280 L150,280 Z" fill="none" stroke="#444" strokeWidth="1" />
+    </G>
+  </Svg>
+);
+
+const BackBodySvg = ({ onMusclePress }: { onMusclePress: (muscle: string) => void }) => (
+  <Svg width={300} height={480} viewBox="0 0 400 500">
+    <G>
+      <TouchableOpacity onPress={() => onMusclePress("traps")}>
+        <Path
+          d="M160,80 Q200,75 240,80 Q245,110 235,130 Q200,135 165,130 Q155,110 160,80 Z"
+          fill={fatigueData.traps?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("rearDelts")}>
+        <Path
+          d="M100,80 Q120,60 140,80 Q145,110 130,130 L120,120 Q105,100 100,80 Z"
+          fill={fatigueData.rearDelts?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M260,80 Q280,60 300,80 Q295,100 280,120 L270,130 Q255,110 260,80 Z"
+          fill={fatigueData.rearDelts?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("back")}>
+        <Path
+          d="M160,130 Q200,125 240,130 Q250,180 245,230 Q200,235 155,230 Q150,180 160,130 Z"
+          fill={fatigueData.back?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path d="M200,130 L200,230" stroke="#333" strokeWidth="1" />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("triceps")}>
+        <Path
+          d="M80,120 Q90,110 110,120 Q115,150 105,180 Q95,185 85,180 Q75,150 80,120 Z"
+          fill={fatigueData.triceps?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M290,120 Q310,110 320,120 Q325,150 315,180 Q305,185 295,180 Q285,150 290,120 Z"
+          fill={fatigueData.triceps?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("lowerBack")}>
+        <Path
+          d="M170,230 Q200,225 230,230 Q235,260 225,280 Q200,285 175,280 Q165,260 170,230 Z"
+          fill={fatigueData.lowerBack?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("glutes")}>
+        <Path
+          d="M160,280 Q200,275 240,280 Q245,320 235,340 Q200,345 165,340 Q155,320 160,280 Z"
+          fill={fatigueData.glutes?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path d="M200,280 L200,340" stroke="#333" strokeWidth="1" />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("hamstrings")}>
+        <Path
+          d="M150,340 Q170,335 190,340 Q195,400 185,420 Q175,425 165,420 Q155,400 150,340 Z"
+          fill={fatigueData.hamstrings?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M210,340 Q230,335 250,340 Q245,400 235,420 Q225,425 215,420 Q205,400 210,340 Z"
+          fill={fatigueData.hamstrings?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path d="M170,350 L170,410" stroke="#333" strokeWidth="1" />
+        <Path d="M230,350 L230,410" stroke="#333" strokeWidth="1" />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("calves")}>
+        <Path
+          d="M155,420 Q175,415 185,420 Q190,460 180,480 Q170,485 160,480 Q150,460 155,420 Z"
+          fill={fatigueData.calves?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+        <Path
+          d="M215,420 Q235,415 245,420 Q240,460 230,480 Q220,485 210,480 Q205,460 215,420 Z"
+          fill={fatigueData.calves?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => onMusclePress("neck")}>
+        <Path
+          d="M185,60 Q200,55 215,60 Q220,75 210,80 Q200,85 190,80 Q180,75 185,60 Z"
+          fill={fatigueData.neck?.color || "#8B4513"}
+          stroke="#222"
+          strokeWidth="2"
+        />
+      </TouchableOpacity>
+
+      <Circle cx="200" cy="40" r="25" fill="#2C2C2C" stroke="#444" strokeWidth="2" />
+      <Path d="M185,60 L215,60 L210,80 L190,80 Z" fill="#2C2C2C" stroke="#444" strokeWidth="2" />
+      <Path d="M160,80 L240,80 L250,280 L150,280 Z" fill="none" stroke="#444" strokeWidth="1" />
+    </G>
+  </Svg>
+);
 
 const MuscleMapScreen = () => {
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"front" | "back">("front");
+
+  const handleMusclePress = (muscle: string) => {
+    setSelectedMuscle(muscle);
+  };
+
+  const toggleView = () => {
+    setViewMode(viewMode === "front" ? "back" : "front");
+  };
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Mapa Muscular</Text>
-        <View style={styles.silhouetteContainer}>
-          <Svg width={220} height={400} viewBox="0 0 220 400">
-            {/* Peito */}
-            <Path d="M70,90 Q110,70 150,90 Q145,120 110,120 Q75,120 70,90" fill={fatigueData.chest.color} onPress={() => setSelectedMuscle('chest')} />
-            {/* Ombro esquerdo */}
-            <Path d="M55,80 Q65,60 85,80 Q80,100 65,100 Q55,90 55,80" fill={fatigueData.shoulders.color} onPress={() => setSelectedMuscle('shoulders')} />
-            {/* Ombro direito */}
-            <Path d="M155,80 Q165,60 185,80 Q180,100 165,100 Q155,90 155,80" fill={fatigueData.shoulders.color} onPress={() => setSelectedMuscle('shoulders')} />
-            {/* Bíceps esquerdo */}
-            <Path d="M50,110 Q55,130 70,140 Q75,120 65,110 Q60,110 50,110" fill={fatigueData.biceps.color} onPress={() => setSelectedMuscle('biceps')} />
-            {/* Bíceps direito */}
-            <Path d="M170,110 Q165,130 150,140 Q145,120 155,110 Q160,110 170,110" fill={fatigueData.biceps.color} onPress={() => setSelectedMuscle('biceps')} />
-            {/* Tríceps esquerdo */}
-            <Path d="M60,140 Q55,170 70,180 Q75,160 70,150 Q65,145 60,140" fill={fatigueData.triceps.color} onPress={() => setSelectedMuscle('triceps')} />
-            {/* Tríceps direito */}
-            <Path d="M160,140 Q165,170 150,180 Q145,160 150,150 Q155,145 160,140" fill={fatigueData.triceps.color} onPress={() => setSelectedMuscle('triceps')} />
-            {/* Abdômen */}
-            <Path d="M90,130 Q110,130 130,130 Q135,170 110,200 Q85,170 90,130" fill={fatigueData.abs.color} onPress={() => setSelectedMuscle('abs')} />
-            {/* Quadríceps esquerdo */}
-            <Path d="M90,200 Q95,250 90,340 Q70,340 75,250 Q80,220 90,200" fill={fatigueData.quads.color} onPress={() => setSelectedMuscle('quads')} />
-            {/* Quadríceps direito */}
-            <Path d="M130,200 Q125,250 130,340 Q150,340 145,250 Q140,220 130,200" fill={fatigueData.quads.color} onPress={() => setSelectedMuscle('quads')} />
-            {/* Posterior esquerdo */}
-            <Path d="M75,250 Q70,300 80,340 Q90,340 90,320 Q85,270 75,250" fill={fatigueData.hamstrings.color} onPress={() => setSelectedMuscle('hamstrings')} />
-            {/* Posterior direito */}
-            <Path d="M145,250 Q150,300 140,340 Q130,340 130,320 Q135,270 145,250" fill={fatigueData.hamstrings.color} onPress={() => setSelectedMuscle('hamstrings')} />
-            {/* Glúteos */}
-            <Path d="M100,200 Q120,200 125,220 Q120,240 100,240 Q95,220 100,200" fill={fatigueData.glutes.color} onPress={() => setSelectedMuscle('glutes')} />
-            {/* Panturrilha esquerda */}
-            <Path d="M80,340 Q85,370 95,390 Q100,380 95,340 Q90,340 80,340" fill={fatigueData.calves.color} onPress={() => setSelectedMuscle('calves')} />
-            {/* Panturrilha direita */}
-            <Path d="M140,340 Q135,370 125,390 Q120,380 125,340 Q130,340 140,340" fill={fatigueData.calves.color} onPress={() => setSelectedMuscle('calves')} />
-            {/* Antebraço esquerdo */}
-            <Path d="M45,180 Q50,210 65,220 Q70,200 60,180 Q55,180 45,180" fill={fatigueData.forearms.color} onPress={() => setSelectedMuscle('forearms')} />
-            {/* Antebraço direito */}
-            <Path d="M175,180 Q170,210 155,220 Q150,200 160,180 Q165,180 175,180" fill={fatigueData.forearms.color} onPress={() => setSelectedMuscle('forearms')} />
-          </Svg>
-        </View>
-        {/* Legenda */}
-        <View style={styles.legendContainer}>
-          <Text style={styles.legendTitle}>Legenda:</Text>
-          <View style={styles.legendRow}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
+      <Text style={styles.title}>Mapa Muscular</Text>
+
+      {/* Toggle de visualização */}
+      <View style={styles.viewToggle}>
+        <TouchableOpacity style={[styles.toggleButton, viewMode === "front" && styles.toggleButtonActive]} onPress={() => setViewMode("front")}>
+          <Text style={[styles.toggleText, viewMode === "front" && styles.toggleTextActive]}>Frente</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.toggleButton, viewMode === "back" && styles.toggleButtonActive]} onPress={() => setViewMode("back")}>
+          <Text style={[styles.toggleText, viewMode === "back" && styles.toggleTextActive]}>Costas</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Corpo humano */}
+      <View style={styles.bodyContainer}>
+        {viewMode === "front" ? <FrontBodySvg onMusclePress={handleMusclePress} /> : <BackBodySvg onMusclePress={handleMusclePress} />}
+      </View>
+
+      {/* Legenda */}
+      <View style={styles.legendContainer}>
+        <Text style={styles.legendTitle}>Status de Recuperação:</Text>
+        <View style={styles.legendGrid}>
+          <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: fatigueColors.green }]} />
             <Text style={styles.legendText}>Recuperado</Text>
+          </View>
+          <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: fatigueColors.yellow }]} />
             <Text style={styles.legendText}>Leve</Text>
+          </View>
+          <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: fatigueColors.orange }]} />
             <Text style={styles.legendText}>Moderado</Text>
+          </View>
+          <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: fatigueColors.red }]} />
-            <Text style={styles.legendText}>Cansado</Text>
+            <Text style={styles.legendText}>Fatigado</Text>
           </View>
         </View>
-        {/* Lista de grupos musculares */}
-        {muscleGroups.map((group) => (
-          <TouchableOpacity key={group.key} style={styles.card} onPress={() => setSelectedMuscle(group.key)}>
-            <View style={[styles.statusDot, { backgroundColor: fatigueData[group.key].color }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{group.name}</Text>
-              <Text style={styles.cardSubtitle}>Último treino: {fatigueData[group.key].lastWorkout}</Text>
-            </View>
-            <Text style={styles.cardStatus}>{fatigueData[group.key].status}</Text>
-          </TouchableOpacity>
-        ))}
       </View>
-      {/* Modal de detalhes do músculo */}
-      <Modal visible={!!selectedMuscle} transparent animationType="slide" onRequestClose={() => setSelectedMuscle(null)}>
+
+      {/* Lista de grupos musculares */}
+      <View style={styles.muscleList}>
+        <Text style={styles.sectionTitle}>Grupos Musculares</Text>
+        {muscleGroups
+          .filter((group) => (viewMode === "front" ? group.frontView : !group.frontView))
+          .map((group) => (
+            <TouchableOpacity key={group.key} style={styles.muscleCard} onPress={() => setSelectedMuscle(group.key)}>
+              <View style={[styles.statusIndicator, { backgroundColor: fatigueData[group.key].color }]} />
+              <View style={styles.muscleInfo}>
+                <Text style={styles.muscleName}>{group.name}</Text>
+                <Text style={styles.muscleStatus}>
+                  {fatigueData[group.key].status} • {fatigueData[group.key].lastWorkout}
+                </Text>
+              </View>
+              <Text style={styles.fatiguePercent}>{fatigueData[group.key].percent}%</Text>
+            </TouchableOpacity>
+          ))}
+      </View>
+
+      {/* Modal de detalhes */}
+      <Modal visible={!!selectedMuscle} transparent animationType="fade" onRequestClose={() => setSelectedMuscle(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             {selectedMuscle && (
               <>
-                <Text style={styles.modalTitle}>{muscleGroups.find(g => g.key === selectedMuscle)?.name}</Text>
-                <Text style={styles.modalDetail}>Fadiga: {fatigueData[selectedMuscle].percent}%</Text>
-                <Text style={styles.modalDetail}>Último treino: {fatigueData[selectedMuscle].lastWorkout}</Text>
-                <Text style={styles.modalDetail}>Volume (7 dias): {fatigueData[selectedMuscle].volume} kg</Text>
-                <Text style={styles.modalDetail}>Status: {fatigueData[selectedMuscle].status}</Text>
+                <Text style={styles.modalTitle}>{muscleGroups.find((g) => g.key === selectedMuscle)?.name}</Text>
+
+                <View style={styles.modalStats}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Status</Text>
+                    <Text style={[styles.statValue, { color: fatigueData[selectedMuscle].color }]}>{fatigueData[selectedMuscle].status}</Text>
+                  </View>
+
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Fadiga</Text>
+                    <Text style={styles.statValue}>{fatigueData[selectedMuscle].percent}%</Text>
+                  </View>
+
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Último Treino</Text>
+                    <Text style={styles.statValue}>{fatigueData[selectedMuscle].lastWorkout}</Text>
+                  </View>
+
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Volume (7 dias)</Text>
+                    <Text style={styles.statValue}>{fatigueData[selectedMuscle].volume} kg</Text>
+                  </View>
+                </View>
+
                 <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedMuscle(null)}>
-                  <Text style={{ color: '#fff' }}>Fechar</Text>
+                  <Text style={styles.closeButtonText}>Fechar</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -241,25 +527,175 @@ const MuscleMapScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#181818', padding: 16 },
-  title: { color: '#FFAB00', fontSize: 26, fontWeight: 'bold', textAlign: 'center', marginBottom: 12 },
-  silhouetteContainer: { alignItems: 'center', marginBottom: 16 },
-  legendContainer: { flexDirection: 'column', alignItems: 'center', marginBottom: 12 },
-  legendTitle: { color: '#fff', fontWeight: 'bold', marginBottom: 4 },
-  legendRow: { flexDirection: 'row', alignItems: 'center' },
-  legendDot: { width: 16, height: 16, borderRadius: 8, marginHorizontal: 4 },
-  legendText: { color: '#fff', marginRight: 8, fontSize: 13 },
-  cardList: { flex: 1 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#222', borderRadius: 8, padding: 12, marginBottom: 8 },
-  statusDot: { width: 14, height: 14, borderRadius: 7, marginRight: 10 },
-  cardTitle: { color: '#FFAB00', fontWeight: 'bold', fontSize: 16 },
-  cardSubtitle: { color: '#B0BEC5', fontSize: 13 },
-  cardStatus: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#222', borderRadius: 12, padding: 24, width: 280, alignItems: 'center' },
-  modalTitle: { color: '#FFAB00', fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
-  modalDetail: { color: '#fff', fontSize: 16, marginBottom: 6 },
-  closeButton: { marginTop: 16, backgroundColor: '#FF6F00', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 24 },
+  container: {
+    flex: 1,
+    backgroundColor: "#1A1A1A",
+  },
+  title: {
+    color: "#FFAB00",
+    fontSize: 28,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginVertical: 20,
+  },
+  viewToggle: {
+    flexDirection: "row",
+    backgroundColor: "#333",
+    borderRadius: 25,
+    margin: 20,
+    padding: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 20,
+  },
+  toggleButtonActive: {
+    backgroundColor: "#FF6F00",
+  },
+  toggleText: {
+    color: "#B0BEC5",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  toggleTextActive: {
+    color: "#FFFFFF",
+  },
+  bodyContainer: {
+    alignItems: "center",
+    marginVertical: 20,
+    backgroundColor: "#2C2C2C",
+    marginHorizontal: 20,
+    borderRadius: 20,
+    paddingVertical: 20,
+  },
+  legendContainer: {
+    margin: 20,
+    backgroundColor: "#333",
+    borderRadius: 15,
+    padding: 16,
+  },
+  legendTitle: {
+    color: "#FFAB00",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  legendGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "48%",
+    marginBottom: 8,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  legendText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+  },
+  muscleList: {
+    margin: 20,
+  },
+  sectionTitle: {
+    color: "#FFAB00",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 16,
+  },
+  muscleCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#333",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+  },
+  statusIndicator: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  muscleInfo: {
+    flex: 1,
+  },
+  muscleName: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  muscleStatus: {
+    color: "#B0BEC5",
+    fontSize: 14,
+  },
+  fatiguePercent: {
+    color: "#FFAB00",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#333",
+    borderRadius: 20,
+    padding: 24,
+    width: screenWidth - 40,
+    maxWidth: 400,
+  },
+  modalTitle: {
+    color: "#FFAB00",
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalStats: {
+    marginBottom: 24,
+  },
+  statItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#444",
+  },
+  statLabel: {
+    color: "#B0BEC5",
+    fontSize: 16,
+  },
+  statValue: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  closeButton: {
+    backgroundColor: "#FF6F00",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  closeButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
 });
 
-export default MuscleMapScreen; 
+export default MuscleMapScreen;

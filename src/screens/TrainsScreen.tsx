@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, TextInput, ScrollView, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, TextInput, ScrollView, Alert, Platform, KeyboardAvoidingView } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { TrainRoutine, RoutineDay, RoutineExercise } from "../types";
@@ -228,96 +228,101 @@ const TrainsScreen = () => {
     );
 
   return (
-    <View style={styles.screenContainer}>
-      <TouchableOpacity style={styles.createButton} onPress={openModalForNew}>
-        <MaterialCommunityIcons name="plus-circle" size={28} color={textPrimary} />
-        <Text style={styles.createButtonText}>Add New Routine</Text>
-      </TouchableOpacity>
-      <FlatList
-        data={routines.sort((a, b) => a.name.localeCompare(b.name))}
-        renderItem={renderRoutineItem}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={styles.emptyListText}>No routines yet. Create your first one!</Text>}
-      />
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={modalVisible}
-        onRequestClose={() => {
-          setModalVisible(false);
-          resetForm();
-        }}
-      >
-        <ScrollView style={styles.modalContainer} keyboardShouldPersistTaps="handled">
-          {modalStep === 1 && (
-            <View>
-              <Text style={styles.modalTitle}>Select Number of Training Days</Text>
-              <View style={styles.pickerWrapper}>
-                <Picker
-                  selectedValue={numberOfDays}
-                  onValueChange={(itemValue) => setNumberOfDays(String(itemValue))}
-                  style={styles.picker}
-                  dropdownIconColor={textPrimary}
-                >
-                  {["1", "2", "3", "4", "5", "6", "7"].map((d) => (
-                    <Picker.Item key={d} label={`${d} Day${d !== "1" ? "s" : ""}`} value={d} color={textPrimary} />
-                  ))}
-                </Picker>
-              </View>
-              <TouchableOpacity style={styles.styledModalButton} onPress={handleProceedToStep2}>
-                <Text style={styles.styledModalButtonText}>Next</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.styledModalCancelButton}
-                onPress={() => {
-                  setModalVisible(false);
-                  resetForm();
-                }}
-              >
-                <Text style={styles.styledModalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          {modalStep === 2 && (
-            <View>
-              <Text style={styles.modalTitle}>{editingRoutine ? "Edit Routine" : "Create New Routine"}</Text>
-              <TextInput
-                placeholder="Routine Name"
-                placeholderTextColor={textSecondary}
-                style={styles.input}
-                value={routineName}
-                onChangeText={setRoutineName}
-              />
-              {currentDays.map(renderDayForm)}
-              <View style={styles.modalButtonContainer}>
-                <TouchableOpacity style={styles.styledModalButton} onPress={handleSaveRoutine}>
-                  <Text style={styles.styledModalButtonText}>{editingRoutine ? "Update Routine" : "Save Routine"}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.styledModalCancelButton}
-                  onPress={() => {
-                    setModalVisible(false);
-                    resetForm();
-                  }}
-                >
-                  <Text style={styles.styledModalButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-      </Modal>
-    </View>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.addButton} onPress={openModalForNew}>
+          <MaterialCommunityIcons name="plus" size={24} color={textPrimary} />
+          <Text style={styles.addButtonText}>Create New Routine</Text>
+        </TouchableOpacity>
+        {isLoading ? (
+          <Text style={styles.loadingText}>Loading routines...</Text>
+        ) : (
+          <FlatList
+            data={routines.sort((a, b) => a.name.localeCompare(b.name))}
+            renderItem={renderRoutineItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+        <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
+          <KeyboardAvoidingView style={styles.modalContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <ScrollView 
+              keyboardShouldPersistTaps="handled" 
+              contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {modalStep === 1 && (
+                <View>
+                  <Text style={styles.modalTitle}>Select Number of Training Days</Text>
+                  <View style={styles.pickerWrapper}>
+                    <Picker
+                      selectedValue={numberOfDays}
+                      onValueChange={(itemValue) => setNumberOfDays(String(itemValue))}
+                      style={styles.picker}
+                      dropdownIconColor={textPrimary}
+                    >
+                      {["1", "2", "3", "4", "5", "6", "7"].map((d) => (
+                        <Picker.Item key={d} label={`${d} Day${d !== "1" ? "s" : ""}`} value={d} color={textPrimary} />
+                      ))}
+                    </Picker>
+                  </View>
+                  <TouchableOpacity style={styles.styledModalButton} onPress={handleProceedToStep2}>
+                    <Text style={styles.styledModalButtonText}>Next</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.styledModalCancelButton}
+                    onPress={() => {
+                      setModalVisible(false);
+                      resetForm();
+                    }}
+                  >
+                    <Text style={styles.styledModalButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {modalStep === 2 && (
+                <View>
+                  <Text style={styles.modalTitle}>{editingRoutine ? "Edit Routine" : "Create New Routine"}</Text>
+                  <TextInput
+                    placeholder="Routine Name"
+                    placeholderTextColor={textSecondary}
+                    style={styles.input}
+                    value={routineName}
+                    onChangeText={setRoutineName}
+                  />
+                  {currentDays.map(renderDayForm)}
+                  <View style={styles.modalButtonContainer}>
+                    <TouchableOpacity style={styles.styledModalButton} onPress={handleSaveRoutine}>
+                      <Text style={styles.styledModalButtonText}>{editingRoutine ? "Update Routine" : "Save Routine"}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.styledModalCancelButton}
+                      onPress={() => {
+                        setModalVisible(false);
+                        resetForm();
+                      }}
+                    >
+                      <Text style={styles.styledModalButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Modal>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  screenContainer: {
+  container: {
     flex: 1,
     padding: 15,
     backgroundColor: darkCharcoal,
   },
-  createButton: {
+  addButton: {
     backgroundColor: primaryOrange,
     flexDirection: "row",
     alignItems: "center",
@@ -331,12 +336,19 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 5,
   },
-  createButtonText: {
+  addButtonText: {
     color: textPrimary,
     fontSize: 18,
     fontWeight: "bold",
     marginLeft: 10,
     textTransform: "uppercase",
+  },
+  loadingText: {
+    textAlign: "center",
+    marginTop: 60,
+    fontSize: 16,
+    color: textSecondary,
+    fontStyle: "italic",
   },
   listItemContainer: {
     backgroundColor: mediumGray,

@@ -13,6 +13,8 @@ import {
   Image,
   Alert,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { muscleWikiService, MuscleWikiExercise, MuscleWikiCategory } from "../services/muscleWikiService";
@@ -511,81 +513,91 @@ const MuscleWikiScreen = () => {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: darkCharcoal }}>
-      <View style={{ padding: 16 }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
-        >
-          <TextInput
+    <KeyboardAvoidingView 
+      style={{ flex: 1, backgroundColor: darkCharcoal }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      enabled={true}
+    >
+      <View style={{ flex: 1, backgroundColor: darkCharcoal }}>
+        <View style={{ padding: 16 }}>
+          <View
             style={{
-              backgroundColor: mediumGray,
-              color: textPrimary,
-              borderRadius: 12,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              fontSize: 16,
-              flex: 1,
-            }}
-            placeholder="Buscar exercícios..."
-            placeholderTextColor={textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          <TouchableOpacity
-            onPress={handleRefresh}
-            style={{
-              backgroundColor: primaryOrange,
-              borderRadius: 12,
-              padding: 12,
-              marginLeft: 8,
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 16,
             }}
           >
-            <MaterialCommunityIcons name="refresh" size={20} color={textPrimary} />
-          </TouchableOpacity>
+            <TextInput
+              style={{
+                backgroundColor: mediumGray,
+                color: textPrimary,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 16,
+                flex: 1,
+              }}
+              placeholder="Buscar exercícios..."
+              placeholderTextColor={textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              blurOnSubmit={true}
+            />
+            <TouchableOpacity
+              onPress={handleRefresh}
+              style={{
+                backgroundColor: primaryOrange,
+                borderRadius: 12,
+                padding: 12,
+                marginLeft: 8,
+              }}
+            >
+              <MaterialCommunityIcons name="refresh" size={20} color={textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          {renderCategoryFilter()}
+
+          <View style={styles.header}>
+            <Text style={styles.title}>Exercícios ({filteredExercises.length})</Text>
+            <TouchableOpacity style={styles.addButton} onPress={() => setAddModalVisible(true)}>
+              <Ionicons name="add" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+            <MaterialCommunityIcons name="dumbbell" size={16} color={primaryOrange} />
+            <Text
+              style={{
+                color: textSecondary,
+                fontSize: 14,
+                marginLeft: 8,
+              }}
+            >
+              {filteredExercises.length} exercícios disponíveis
+            </Text>
+          </View>
         </View>
 
-        {renderCategoryFilter()}
+        <FlatList
+          data={filteredExercises}
+          renderItem={renderExerciseCard}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={{ justifyContent: "space-between" }}
+          contentContainerStyle={{ padding: 8 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[primaryOrange]} />}
+          keyboardShouldPersistTaps="handled"
+        />
 
-        <View style={styles.header}>
-          <Text style={styles.title}>Exercícios ({filteredExercises.length})</Text>
-          <TouchableOpacity style={styles.addButton} onPress={() => setAddModalVisible(true)}>
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
+        {renderExerciseModal()}
 
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-          <MaterialCommunityIcons name="dumbbell" size={16} color={primaryOrange} />
-          <Text
-            style={{
-              color: textSecondary,
-              fontSize: 14,
-              marginLeft: 8,
-            }}
-          >
-            {filteredExercises.length} exercícios disponíveis
-          </Text>
-        </View>
+        <AddExerciseModal visible={addModalVisible} onClose={() => setAddModalVisible(false)} onExerciseAdded={handleExerciseAdded} />
       </View>
-
-      <FlatList
-        data={filteredExercises}
-        renderItem={renderExerciseCard}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={{ justifyContent: "space-between" }}
-        contentContainerStyle={{ padding: 8 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[primaryOrange]} />}
-      />
-
-      {renderExerciseModal()}
-
-      <AddExerciseModal visible={addModalVisible} onClose={() => setAddModalVisible(false)} onExerciseAdded={handleExerciseAdded} />
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

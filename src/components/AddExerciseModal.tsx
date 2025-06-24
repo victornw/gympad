@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Modal, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from "react-native";
+import { View, Text, Modal, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { muscleWikiService, AVAILABLE_MUSCLES, AVAILABLE_EQUIPMENT, AVAILABLE_DIFFICULTIES } from "../services/muscleWikiService";
 
@@ -76,94 +76,117 @@ export default function AddExerciseModal({ visible, onClose, onExerciseAdded }: 
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Adicionar Exercício</Text>
-          <TouchableOpacity onPress={handleSave} style={[styles.saveButton, loading && styles.saveButtonDisabled]} disabled={loading}>
-            <Text style={styles.saveButtonText}>{loading ? "Salvando..." : "Salvar"}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.section}>
-            <Text style={styles.label}>Nome do Exercício *</Text>
-            <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Ex: Flexão personalizada" placeholderTextColor="#999" />
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Adicionar Exercício</Text>
+            <TouchableOpacity onPress={handleSave} style={[styles.saveButton, loading && styles.saveButtonDisabled]} disabled={loading}>
+              <Text style={styles.saveButtonText}>{loading ? "Salvando..." : "Salvar"}</Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Categoria *</Text>
-            <TextInput
-              style={styles.input}
-              value={category}
-              onChangeText={setCategory}
-              placeholder="Ex: Peito, Pernas, Braços..."
-              placeholderTextColor="#999"
-            />
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.label}>Músculos Trabalhados *</Text>
-            <View style={styles.muscleGrid}>
-              {AVAILABLE_MUSCLES.map((muscle) => (
-                <TouchableOpacity
-                  key={muscle}
-                  style={[styles.muscleChip, selectedMuscles.includes(muscle) && styles.muscleChipSelected]}
-                  onPress={() => toggleMuscle(muscle)}
-                >
-                  <Text style={[styles.muscleChipText, selectedMuscles.includes(muscle) && styles.muscleChipTextSelected]}>{muscle}</Text>
-                </TouchableOpacity>
-              ))}
+          <ScrollView 
+            style={styles.content} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 50 }}
+          >
+            <View style={styles.section}>
+              <Text style={styles.label}>Nome do Exercício *</Text>
+              <TextInput 
+                style={styles.input} 
+                value={name} 
+                onChangeText={setName} 
+                placeholder="Ex: Flexão personalizada" 
+                placeholderTextColor="#999" 
+                returnKeyType="next"
+                blurOnSubmit={false}
+              />
             </View>
-          </View>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Equipamento</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-              {AVAILABLE_EQUIPMENT.map((eq) => (
-                <TouchableOpacity
-                  key={eq}
-                  style={[styles.optionChip, equipment === eq && styles.optionChipSelected]}
-                  onPress={() => setEquipment(equipment === eq ? "" : eq)}
-                >
-                  <Text style={[styles.optionChipText, equipment === eq && styles.optionChipTextSelected]}>{eq}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+            <View style={styles.section}>
+              <Text style={styles.label}>Categoria *</Text>
+              <TextInput
+                style={styles.input}
+                value={category}
+                onChangeText={setCategory}
+                placeholder="Ex: Peito, Pernas, Braços..."
+                placeholderTextColor="#999"
+                returnKeyType="next"
+                blurOnSubmit={false}
+              />
+            </View>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Dificuldade</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-              {AVAILABLE_DIFFICULTIES.map((diff) => (
-                <TouchableOpacity
-                  key={diff}
-                  style={[styles.optionChip, difficulty === diff && styles.optionChipSelected]}
-                  onPress={() => setDifficulty(difficulty === diff ? "" : diff)}
-                >
-                  <Text style={[styles.optionChipText, difficulty === diff && styles.optionChipTextSelected]}>{diff}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+            <View style={styles.section}>
+              <Text style={styles.label}>Músculos Trabalhados *</Text>
+              <View style={styles.muscleGrid}>
+                {AVAILABLE_MUSCLES.map((muscle) => (
+                  <TouchableOpacity
+                    key={muscle}
+                    style={[styles.muscleChip, selectedMuscles.includes(muscle) && styles.muscleChipSelected]}
+                    onPress={() => toggleMuscle(muscle)}
+                  >
+                    <Text style={[styles.muscleChipText, selectedMuscles.includes(muscle) && styles.muscleChipTextSelected]}>{muscle}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Instruções</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={instructions}
-              onChangeText={setInstructions}
-              placeholder="Descreva como executar o exercício..."
-              placeholderTextColor="#999"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-        </ScrollView>
-      </View>
+            <View style={styles.section}>
+              <Text style={styles.label}>Equipamento</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                {AVAILABLE_EQUIPMENT.map((eq) => (
+                  <TouchableOpacity
+                    key={eq}
+                    style={[styles.optionChip, equipment === eq && styles.optionChipSelected]}
+                    onPress={() => setEquipment(equipment === eq ? "" : eq)}
+                  >
+                    <Text style={[styles.optionChipText, equipment === eq && styles.optionChipTextSelected]}>{eq}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.label}>Dificuldade</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                {AVAILABLE_DIFFICULTIES.map((diff) => (
+                  <TouchableOpacity
+                    key={diff}
+                    style={[styles.optionChip, difficulty === diff && styles.optionChipSelected]}
+                    onPress={() => setDifficulty(difficulty === diff ? "" : diff)}
+                  >
+                    <Text style={[styles.optionChipText, difficulty === diff && styles.optionChipTextSelected]}>{diff}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.label}>Instruções</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={instructions}
+                onChangeText={setInstructions}
+                placeholder="Descreva como executar o exercício..."
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                returnKeyType="done"
+                blurOnSubmit={true}
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

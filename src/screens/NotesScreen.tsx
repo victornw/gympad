@@ -17,6 +17,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DailyNote, ExerciseSet, KnownExerciseNames } from "../types";
 import { format, parseISO, isValid, startOfDay, isFuture } from "date-fns";
+import { muscleWikiService, MuscleWikiExercise } from "../services/muscleWikiService";
 
 const NOTES_STORAGE_KEY = "@GymPad:notes";
 const KNOWN_EXERCISES_STORAGE_KEY = "@GymPad:knownExercises";
@@ -54,6 +55,9 @@ const NotesScreen = () => {
   const [currentExerciseNameInput, setCurrentExerciseNameInput] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
+  // Estados para integrar exercícios do MuscleWiki
+  const [availableExercises, setAvailableExercises] = useState<MuscleWikiExercise[]>([]);
+
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   const [workoutStartTime, setWorkoutStartTime] = useState<string | null>(null);
   const [workoutEndTime, setWorkoutEndTime] = useState<string | null>(null);
@@ -84,6 +88,12 @@ const NotesScreen = () => {
         if (storedNames) {
           setKnownExerciseNames(new Set(JSON.parse(storedNames)));
         }
+        
+        // Carregar exercícios do MuscleWiki
+        await muscleWikiService.initialize();
+        const muscleWikiExercises = muscleWikiService.getAllExercises();
+        setAvailableExercises(muscleWikiExercises);
+        
       } catch (e) {
         console.error("Failed to load data from storage", e);
         Alert.alert("Error", "Failed to load saved data.");
@@ -110,9 +120,29 @@ const NotesScreen = () => {
 
   const handleExerciseNameChange = (text: string) => {
     setCurrentExerciseNameInput(text);
-    if (text.trim().length > 0) {
-      const filtered = Array.from(knownExerciseNames).filter((name) => name.toLowerCase().includes(text.toLowerCase()));
-      setSuggestions(filtered);
+    if (text.trim().length >= 2) {
+      // Combinar exercícios conhecidos e exercícios do MuscleWiki
+      const knownExercisesList = Array.from(knownExerciseNames);
+      const muscleWikiNames = availableExercises.map(ex => ex.name);
+      
+      // Filtrar sugestões de exercícios conhecidos
+      const knownSuggestions = knownExercisesList.filter((name) => 
+        name.toLowerCase().includes(text.toLowerCase())
+      );
+      
+      // Filtrar sugestões do MuscleWiki (evitar duplicatas)
+      const muscleWikiSuggestions = muscleWikiNames.filter((name) => 
+        name.toLowerCase().includes(text.toLowerCase()) && 
+        !knownExercisesList.includes(name)
+      );
+      
+      // Combinar e limitar sugestões (priorizar exercícios conhecidos)
+      const combinedSuggestions = [
+        ...knownSuggestions.slice(0, 3),
+        ...muscleWikiSuggestions.slice(0, 5)
+      ].slice(0, 8);
+      
+      setSuggestions(combinedSuggestions);
     } else {
       setSuggestions([]);
     }
@@ -523,15 +553,24 @@ const NotesScreen = () => {
   }
 
   return (
-    <View style={styles.screenContainer}>
-      <FlatList
-        data={notes}
-        renderItem={renderNoteItem}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={styles.emptyListText}>No notes yet. Add your first workout!</Text>}
-        extraData={notes}
-      />
-    </View>
+    <KeyboardAvoidingView 
+      style={styles.screenContainer} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      enabled={true}
+    >
+      <View style={styles.screenContainer}>
+        <FlatList
+          data={notes}
+          renderItem={renderNoteItem}
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={<Text style={styles.emptyListText}>No notes yet. Add your first workout!</Text>}
+          extraData={notes}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
